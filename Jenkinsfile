@@ -1,43 +1,51 @@
-pipeline{
-    agent {
-        label "java"
+pipeline {
+    agent any
+    environment {
+        IMAGE_NAME = "bassamelwshahy/java-app1" // replace with your DockerHub image name
     }
-    tools{
-        maven 'mvn-3-5-4'
-        jdk 'java-11'
+    options { 
+        buildDiscarder(logRotator(numToKeepStr: '10')) 
+        timestamps()
     }
-    environment{
-        DOCKER_USER = credentials('docker-username')
-        DOCKER_PASS = credentials('docker-password')
-    }
-    stages{
-        stage("Dependancy check"){
-            steps{
-                sh "mvn dependency-check:check"
-                dependencyCheckPublisher pattern: 'target/dependency-check-report.xml'
+    stages {
+        stage('Checkout') {
+            steps {
+                checkout scm
             }
         }
-        stage("build app"){
-            steps{
-                sh "mvn package install"
+        stage('Maven Build (in Docker)') {
+            steps {
+                // run Maven inside Docker to avoid installing Maven on Jenkins agent
+                sh 'docker run --rm -v $WORKSPACE:/workspace -w /workspace maven:3.9.5-eclipse-temurin-17 mvn -B clean package'
+            }
+            post { 
+                always { 
+                    archiveArtifacts artifacts: "target/*.jar", fingerprint: true 
+                } 
             }
         }
-        stage("archive app"){
-            steps{
-                archiveArtifacts artifacts: '**/*.jar', followSymlinks: false
+        stage('Docker Build') {
+            steps {
+                script {
+                    def tag = "${env.BUILD_NUMBER}"
+                    sh "docker build -t ${IMAGE_NAME}:${tag} -t ${IMAGE_NAME}:latest ."
+                }
+            }
+            post { 
+                always { 
+                    sh 'docker image prune -f || true' 
+                } 
             }
         }
-        stage("docker build"){
-            steps{
-                sh "docker build -t hassaneid/iti-java:v${BUILD_NUMBER} ."
-                sh "docker images"
+        stage('Docker Push') {
+            steps {
+                withCredentials([usernamePassword(credentialsId: 'dockerhub-creds', usernameVariable: 'DOCKER_USER', passwordVariable: 'DOCKER_PASS')]) {
+                    sh "echo $DOCKER_PASS | docker login -u $DOCKER_USER --password-stdin"
+                    sh "docker push ${IMAGE_NAME}:${env.BUILD_NUMBER}"
+                    sh "docker push ${IMAGE_NAME}:latest"
+                }
             }
         }
-        // stage("docker push"){
-        //     steps{
-        //         sh "docker login -u ${DOCKER_USER} -p ${DOCKER_PASS}"
-        //         sh "docker push hassaneid/iti-java:v${BUILD_NUMBER}"
-        //     }
-        // }
     }
 }
+
