@@ -1,5 +1,5 @@
 node {
-    def IMAGE_NAME = "bassamelwshahy/java-app1
+    def IMAGE_NAME = "bassamelwshahy/java-app1"
     
  stage('Verify Jenkinsfile') {
         echo ">>> Running scripted Jenkinsfile <<<"
