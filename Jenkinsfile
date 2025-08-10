@@ -1,31 +1,25 @@
+@Library('my-shared-library') _  // This is the name you give your shared library in Jenkins (Manage Jenkins > Configure System)
+
 node {
-    def IMAGE_NAME = "bassamelwshahy/java-app1"
-    
- stage('Verify Jenkinsfile') {
-        echo ">>> Running scripted Jenkinsfile <<<"
-    }
+    def IMAGE_NAME = "bassamelwshahy/java-app"
+    def IMAGE_TAG = "latest"
+
     stage('Checkout') {
-        checkout scm
+        git branch: 'main', url: 'https://github.com/bassamelwshahy/java.git'
     }
 
-    stage('Maven Build (in Docker)') {
-        sh 'docker run --rm -v $WORKSPACE:/workspace -w /workspace maven:3.9.5-eclipse-temurin-17 mvn -B clean package'
+    stage('Build Java Project') {
+        sh './mvnw clean package'
     }
 
-    stage('Docker Build') {
-        def tag = env.BUILD_NUMBER
-        sh "docker build -t ${IMAGE_NAME}:${tag} -t ${IMAGE_NAME}:latest ."
+    stage('Build Docker Image') {
+        sh "docker build -t ${IMAGE_NAME}:${IMAGE_TAG} ."
     }
 
-    stage('Docker Push') {
-        withCredentials([usernamePassword(credentialsId: 'dockerhub-creds', usernameVariable: 'DOCKER_USER', passwordVariable: 'DOCKER_PASS')]) {
-            sh "echo $DOCKER_PASS | docker login -u $DOCKER_USER --password-stdin"
-            sh "docker push ${IMAGE_NAME}:${env.BUILD_NUMBER}"
-            sh "docker push ${IMAGE_NAME}:latest"
+    stage('Push Docker Image') {
+        withCredentials([usernamePassword(credentialsId: 'dockerhub-creds', usernameVariable: 'USER', passwordVariable: 'PASS')]) {
+            sh "echo $PASS | docker login -u $USER --password-stdin"
+            sh "docker push ${IMAGE_NAME}:${IMAGE_TAG}"
         }
-    }
-
-    stage('Cleanup') {
-        sh 'docker image prune -f || true'
     }
 }
