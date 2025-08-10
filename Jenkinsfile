@@ -1,42 +1,31 @@
-pipeline{
-    agent {
+node {
+    def IMAGE_NAME = "bassamelwshahy/java-app1"
+    
+ stage('Verify Jenkinsfile') {
+        echo ">>> Running scripted Jenkinsfile <<<"
     }
-    tools{
-        maven 'mvn-3-5-4'
-        jdk 'java-11'
+    stage('Checkout') {
+        checkout scm
     }
-    environment{
-        DOCKER_USER = credentials('docker-username')
-        DOCKER_PASS = credentials('docker-password')
+
+    stage('Maven Build (in Docker)') {
+        sh 'docker run --rm -v $WORKSPACE:/workspace -w /workspace maven:3.9.5-eclipse-temurin-17 mvn -B clean package'
     }
-    stages{
-        stage("Dependancy check"){
-            steps{
-                sh "mvn dependency-check:check"
-                dependencyCheckPublisher pattern: 'target/dependency-check-report.xml'
-            }
+
+    stage('Docker Build') {
+        def tag = env.BUILD_NUMBER
+        sh "docker build -t ${IMAGE_NAME}:${tag} -t ${IMAGE_NAME}:latest ."
+    }
+
+    stage('Docker Push') {
+        withCredentials([usernamePassword(credentialsId: 'dockerhub-creds', usernameVariable: 'DOCKER_USER', passwordVariable: 'DOCKER_PASS')]) {
+            sh "echo $DOCKER_PASS | docker login -u $DOCKER_USER --password-stdin"
+            sh "docker push ${IMAGE_NAME}:${env.BUILD_NUMBER}"
+            sh "docker push ${IMAGE_NAME}:latest"
         }
-        stage("build app"){
-            steps{
-                sh "mvn package install"
-            }
-        }
-        stage("archive app"){
-            steps{
-                archiveArtifacts artifacts: '**/*.jar', followSymlinks: false
-            }
-        }
-        stage("docker build"){
-            steps{
-                sh "docker build -t hassaneid/iti-java:v${BUILD_NUMBER} ."
-                sh "docker images"
-            }
-        }
-        // stage("docker push"){
-        //     steps{
-        //         sh "docker login -u ${DOCKER_USER} -p ${DOCKER_PASS}"
-        //         sh "docker push hassaneid/iti-java:v${BUILD_NUMBER}"
-        //     }
-        // }
+    }
+
+    stage('Cleanup') {
+        sh 'docker image prune -f || true'
     }
 }
