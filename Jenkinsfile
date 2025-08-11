@@ -2,13 +2,13 @@ pipeline {
     agent any
     
     tools {
-        maven 'mvn-3-5-4'   // لازم يكون متعرف في Global Tool Configuration
-        jdk 'java-11'       // لازم يكون متعرف في Global Tool Configuration
+        maven 'mvn-3-5-4'
+        jdk 'java-11'
     }
     
     environment {
-        DOCKER_USER = credentials('docker-username') // من Credentials
-        DOCKER_PASS = credentials('docker-password') // من Credentials
+        DOCKER_USER = credentials('docker-username')
+        DOCKER_PASS = credentials('docker-password')
     }
     
     stages {
@@ -38,11 +38,13 @@ pipeline {
             }
         }
         
+        /*
         stage("Docker push") {
             steps {
                 sh "echo $DOCKER_PASS | docker login -u $DOCKER_USER --password-stdin"
                 sh "docker push hassaneid/iti-java:v${BUILD_NUMBER}"
             }
         }
+        */
     }
 }
