@@ -1,25 +1,43 @@
-@Library('my-shared-library') _  // This is the name you give your shared library in Jenkins (Manage Jenkins > Configure System)
+pipeline{
+    agent any {
 
-node {
-    def IMAGE_NAME = "bassamelwshahy/java-app"
-    def IMAGE_TAG = "latest"
-
-    stage('Checkout') {
-        git branch: 'main', url: 'https://github.com/bassamelwshahy/java.git'
     }
-
-    stage('Build Java Project') {
-        sh './mvnw clean package'
+    tools{
+        maven 'mvn-3-5-4'
+        jdk 'java-11'
     }
-
-    stage('Build Docker Image') {
-        sh "docker build -t ${IMAGE_NAME}:${IMAGE_TAG} ."
+    environment{
+        DOCKER_USER = credentials('docker-username')
+        DOCKER_PASS = credentials('docker-password')
     }
-
-    stage('Push Docker Image') {
-        withCredentials([usernamePassword(credentialsId: 'dockerhub-creds', usernameVariable: 'USER', passwordVariable: 'PASS')]) {
-            sh "echo $PASS | docker login -u $USER --password-stdin"
-            sh "docker push ${IMAGE_NAME}:${IMAGE_TAG}"
+    stages{
+        stage("Dependancy check"){
+            steps{
+                sh "mvn dependency-check:check"
+                dependencyCheckPublisher pattern: 'target/dependency-check-report.xml'
+            }
         }
+        stage("build app"){
+            steps{
+                sh "mvn package install"
+            }
+        }
+        stage("archive app"){
+            steps{
+                archiveArtifacts artifacts: '**/*.jar', followSymlinks: false
+            }
+        }
+        stage("docker build"){
+            steps{
+                sh "docker build -t hassaneid/iti-java:v${BUILD_NUMBER} ."
+                sh "docker images"
+            }
+        }
+        // stage("docker push"){
+        //     steps{
+        //         sh "docker login -u ${DOCKER_USER} -p ${DOCKER_PASS}"
+        //         sh "docker push hassaneid/iti-java:v${BUILD_NUMBER}"
+        //     }
+        // }
     }
 }
