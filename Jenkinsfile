@@ -1,6 +1,4 @@
 @Library('my-shared-library') _
+import org.example.DockerMavenPipeline
 
-dockerMavenPipeline(
-    imageName: "my-app",
-    credentialsId: "dockerhub-creds"
-)
+new DockerMavenPipeline(this).runPipeline("my-app", "dockerhub-creds")
